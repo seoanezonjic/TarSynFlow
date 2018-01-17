@@ -1,6 +1,6 @@
 # Installation
 
-In order to use TransFlow you must:
+In order to use TarSynFlow you must:
  * 1) Clone this repository. Code: `git clone https://github.com/seoanezonjic/TarSynFlow`
  * 2) Install ruby. We recommend to use the RVM manager:  [RVM](https://rvm.io/)
  * 3) Install AutoFlow. Code: `gem install autoflow`
