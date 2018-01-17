@@ -8,8 +8,8 @@ In order to use TransFlow you must:
  * 5) Install AutoFlow. Code: `gem install make_circos`
  * 6) Install [cd-hit](http://weizhongli-lab.org/cd-hit/)        
  * 7) Install [CIRCOS](http://circos.ca/distribution/circos-0.67-7.tgz)        
- * 8) Install [blast plus](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.2.30/)        
- * 9) Install [prosplign](ftp://ftp.ncbi.nlm.nih.gov/genomes/TOOLS/ProSplign/prosplign.tar.gz)        
+ * 8) Install blast plus => ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.2.30
+ * 9) Install prosplign => ftp://ftp.ncbi.nlm.nih.gov/genomes/TOOLS/ProSplign/prosplign.tar.gz
  * 10) Install [R](https://www.r-project.org/)
  * 11) Make PATH accesible all the installed software.
 
@@ -33,15 +33,17 @@ This script create the genomes folder. Copy or symlink the genomes to analyse in
 ### reduce_prot_redundancy.sh
 To tune the sequence redundancy removing step, this line can be edited: 
 `cd-hit -i proteome/prots.fasta -o proteome/prots_clean.fasta` **-c 0.6 -M 0 -n 4**
+
 The -c parameter means a 60% of sequence identity. It can be changed it is described in the CD-HIT documentation. -M 0 paremeter means no limit in use RAM memory.
 
 ### make_all_comps.sh
 Before edit the script, it is necessary to define the genome groups. One reference group and one query group. To do this the following files must be created in the directory of this script:
  * 1) gen_refs
  * 2) gen_queries
+
 Place a list of genome fastas placed in the genome folder as you wish in these files. Only file name, one per line and only in one of the files. We  recommend only one query genome and use the remaining genomes as references.
 
-Then yo can edit the following variables:
+Then you can edit the following variables:
 ```bash
 GENOME_FILES="/mnt/home/users/pab_001_uma/pedro/proyectos/shewanella/genomes"
 PROTEOME="/mnt/home/users/pab_001_uma/pedro/proyectos/shewanella/proteome/prots_clean.fasta"
