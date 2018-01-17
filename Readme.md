@@ -64,7 +64,7 @@ min_count=7
 ```
 Change this variable to a number that you consider as significant for your amount of genomes. For instance, if you perform 10 comparisons and you want to be absollutely sure that a protein is only in the refrence genomes but not in query genomes, set this variable to 10 in order to ask for the presence of this protein in all the comparisons in the reference genomes.
 
-### get_seqs.sh
+### extract_seqs.sh
 Edit the following lines:
 ```bash
 coord_table="comps/Pdp11_1.fasta/"`head -n 1 gen_refs`"/procompart_0000/coord_table_with_strand"
@@ -81,7 +81,7 @@ Once edited each sh file and satisfied the described requirements, execute each 
 ./reduce_prot_redundancy.sh
 ./make_all_comps.sh
 ./get_all_results.sh
-./get_seqs.sh
+./extract_seqs.sh
 ```
 
 ## Citation
