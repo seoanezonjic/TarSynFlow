@@ -1,0 +1,141 @@
+$coverage_identity_query=70+70
+$coverage_identity_ref=70.5+70
+$genomic=-g
+$diagram_type=single_mapped#all, puts all references mapped
+
+make_genome_db_[$query_genome;$ref_genome]){
+	module load blast_plus/2.2.30+
+	?
+	makeblastdb -in $genomes_path/(*) -dbtype nucl -parse_seqids -out ./db
+}
+
+align_proteins_against_genomes_[$coverage_identity_query;$coverage_identity_ref]){
+	module load scbi_distributed_blast
+	COVERAGE=`echo (*) | cut -f 1 -d '+'` 
+	IDENTITY=`echo (*) | cut -f 2 -d '+'`
+	?
+	scbi_distributed_blast -w [lcpu] -g 200 'tblastn -query $proteins_dataset -db !make_genome_db_*!/db -evalue 1 -outfmt "6 std qlen slen" -out all_blast'
+	blast_filter_ligth.rb -b all_blast -p $IDENTITY -e $COVERAGE $genomic > blast_filtered
+	sort -k 2,2 -k 1,1 < blast_filtered > blast.hit
+}
+
+refine_protein_alignments_[$query_genome;$ref_genome]){
+	module load prosplign
+        module load scbi_distributed_blast
+        COVERAGE='0.45'
+        IDENTITY='0.45'
+	?
+	procompart -max_extent 0 -min_compartment_idty $IDENTITY -min_singleton_idty $COVERAGE -t < !align_proteins_against_genomes_*!/blast.hit > comp
+	awk '{ print $3 " " $2 " " $4 " " $5}' comp|sort > coord_table
+	awk '{ print $3 "\t" $2 "\t" $4 "\t" $5 "\t" $6}' comp|sort > coord_table_with_strand
+	prosplign -two_stages -nogenbank -fasta '$proteins_dataset,$genomes_path/(*)' -i comp -f t > pro.out
+}
+
+sinteny_visualization){
+	module load circos/0.67-7
+	export PATH=/mnt/home/users/pab_001_uma/pedro/dev_gems/make_circos/bin:$PATH
+
+	#Format kariotype data
+	fasta2kariotype.rb $genomes_path/$ref_genome > kariotype
+	fasta2kariotype.rb $genomes_path/$query_genome >> kariotype
+
+	count=1
+	echo '' > color_guide
+	while read i
+	do
+        	echo `echo $i|cut -f 1 -d ' '` color=chr$count >> color_guide
+	        let count=$count+1
+	done < kariotype
+
+
+	tracks=''
+	track_types=''
+	#length=''
+
+	#Format sinteny data
+	join refine_protein_alignments_$ref_genome)/coord_table refine_protein_alignments_$query_genome)/coord_table > links_data # Realiza todas las combinaciones posibles de union entre las filas del primer y segundo archivo
+	awk '{ print $2 " " $3 " " $4 " " $5 " " $6 " " $7}' links_data > circos_links
+	cat circos_links|sort -k 1,1 > circos_links_sort
+	cat color_guide|sort -k 1,1 > color_guide_sort
+	join circos_links_sort color_guide_sort > circos_links
+	tracks=$tracks'circos_links,'
+	track_types=$track_types'l'
+ 
+	make_circos_configuration.rb -k kariotype -t $tracks -v $track_types -c 1 -m '1000000:1'
+	sed 's/label_parallel   = yes/label_parallel   = no/g' etc/ideogram.conf -i
+	sed 's/radius           = 0.90r/radius           = 0.80r/g' etc/ideogram.conf -i
+	sed 's/dims(image,radius) - 60p/dims(image,radius) - 300p/g' etc/ideogram.conf -i
+
+	# list common sequences and specific sequences
+	cut -f 1 links_data | sort -u > common_seqs
+	cat !align_proteins_against_genomes_!/all_blast | awk '{ if ($3 >= 45 && $4/$13 >= 0.45 ) print $1 }' | cut -d '|' -f 2  |sort | uniq -d > shared_seqs_ALL.txt 
+	cut -d ' ' -f 1 links_data |sort -u > shared_seqs_SURE.txt
+	cat shared_seqs_ALL.txt shared_seqs_SURE.txt | sort | uniq -u > shared_seqs_PUTATIVE.txt
+	grep -v -F -f shared_seqs_ALL.txt refine_protein_alignments_$ref_genome)/coord_table > specific_seqs_REF.txt
+	grep -v -F -f shared_seqs_ALL.txt refine_protein_alignments_$query_genome)/coord_table > specific_seqs_QUERY.txt 
+	grep '>' $proteins_dataset | cut -f 2 -d '|'  > input_proteins.txt
+	cat input_proteins.txt shared_seqs_SURE.txt | sort | uniq -u > not_matching_SURE.txt
+	cat input_proteins.txt shared_seqs_ALL.txt | sort | uniq -u > not_matching_PUTATIVE.txt
+	# tag execution
+	echo "$ref_genome-$query_genome" | sed 's/.fasta//g' > compared_genomes
+	?
+	circos -conf etc/circos.conf -debug_group summary,timer -param image/radius=2000p > run.out
+}
+
+
+
+
+
+%single_chromosome_visualization){
+	module load circos/0.67-7
+	export PATH=/mnt/home/users/pab_001_uma/pedro/dev_gems/make_circos/bin:$PATH
+
+	#Format kariotype data
+	fasta2kariotype.rb $genomes_path/$ref_genome|sort -k 1,1 > ref_kariotype
+	fasta2kariotype.rb $genomes_path/$query_genome > query_kariotype
+
+	#Format sinteny data
+	join refine_protein_alignments_$ref_genome)/coord_table refine_protein_alignments_$query_genome)/coord_table > links_data # Realiza todas las combinaciones posibles de union entre las filas del primer y segundo archivo
+	awk '{ print $2 " " $3 " " $4 " " $5 " " $6 " " $7}' links_data > circos_links
+	cat circos_links|sort -k 1,1 > circos_links_sort
+
+
+	mkdir figures
+	?
+	while read k
+	do
+		# Track definition
+		tracks=''
+		track_types=''
+		#length=''
+
+		# Kariotype filtering
+		chr_name=`echo $k|awk '{ print $1}'`
+		if [ "$diagram_type" = "all" ]
+		then
+			cp ref_kariotype kariotype_"$chr_name"
+		else
+			grep "$chr_name" circos_links|cut -f 1 -d ' '|sort|uniq|join - ref_kariotype |tr ' ' \\t > kariotype_"$chr_name"
+		fi
+		echo $k|tr ' ' \\t >> kariotype_"$chr_name"
+
+		# Generate color guide file
+		count=1
+		echo '' > color_guide
+		while read i
+		do
+			echo `echo $i|cut -f 1 -d ' '` color=chr$count >> color_guide
+			let count=$count+1
+		done < kariotype_"$chr_name"
+		cat color_guide|sort -k 1,1 > color_guide_sort
+
+		#Colour links
+		join circos_links_sort color_guide_sort > circos_links_"$chr_name"
+		tracks=$tracks'circos_links_'$chr_name','
+		track_types=$track_types'l'
+
+		#Do graph
+		make_circos_configuration.rb -k kariotype_"$chr_name" -t $tracks -v $track_types -c 1 -m '1000000:1'
+		circos -conf etc/circos.conf -debug_group summary,timer -param image/radius=2000p -outputfile figures/$k > run.out
+	done < query_kariotype
+}
